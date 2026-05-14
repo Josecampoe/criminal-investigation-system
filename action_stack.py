@@ -1,29 +1,28 @@
 """
-Módulo de la Pila de Acciones del Sistema de Investigación Criminal.
+Módulo del Historial de Acciones del Sistema de Investigación Criminal.
 
-Implementa la estructura de datos Pila (Stack - LIFO) para registrar
-las acciones realizadas por los investigadores, permitiendo deshacerlas
-en orden inverso (la última acción registrada es la primera en deshacerse).
+Registra cronológicamente cada acción realizada por los investigadores,
+permitiendo deshacer operaciones en orden inverso: la última acción
+registrada es la primera en poder revertirse.
 
-La pila es fundamental para el sistema de "deshacer" (undo), ya que cada
-acción que un investigador realiza se apila, y al deshacer se retira
-desde la cima hacia abajo.
+Este registro es fundamental para el sistema de "deshacer", garantizando
+trazabilidad y control sobre cada intervención en los casos activos.
 """
 
-from typing import List, Optional
+from typing import List
 
-from exceptions import EmptyStackError
+from enumerations import ActionType
+from exceptions import NoActionsToUndoError
 from models import InvestigatorAction
 
 
-class ActionStack:
+class InvestigatorActionLog:
     """
-    Implementa una estructura de datos tipo Pila (Stack - LIFO) para registrar
-    las acciones realizadas por los investigadores.
+    Registra las acciones realizadas por los investigadores y permite
+    revertirlas en orden inverso (la más reciente se deshace primero).
 
-    Permite agregar acciones, deshacerlas en orden inverso (la última acción
-    registrada es la primera en deshacerse), consultar la acción más reciente
-    y obtener el historial completo.
+    Permite agregar acciones, deshacerlas, consultar la más reciente
+    y obtener el historial completo o filtrado por investigador.
 
     La estructura interna de almacenamiento es privada y no debe accederse
     directamente desde fuera de la clase. Toda interacción se realiza
@@ -32,26 +31,27 @@ class ActionStack:
 
     def __init__(self) -> None:
         """
-        Inicializa la pila de acciones con un almacenamiento interno vacío.
-        La lista interna almacena las acciones donde el último elemento
-        representa la cima de la pila (la acción más reciente).
+        Inicializa el historial de acciones vacío.
+        Las acciones se almacenan en orden cronológico; la última posición
+        corresponde a la acción más reciente.
         """
-        self.__action_storage: List[InvestigatorAction] = []
+        self.__logged_actions: List[InvestigatorAction] = []
 
     @property
     def size(self) -> int:
         """
-        Propiedad que retorna el número actual de acciones almacenadas en la pila.
+        Propiedad que retorna el número actual de acciones registradas.
 
         Retorna:
-            Número entero con la cantidad de acciones en la pila.
+            Número entero con la cantidad de acciones en el historial.
         """
-        return len(self.__action_storage)
+        return len(self.__logged_actions)
 
-    def push_action(self, action: InvestigatorAction) -> None:
+    def register_action(self, action: InvestigatorAction) -> None:
         """
-        Agrega una acción a la cima de la pila. La acción agregada se convierte
-        en la más reciente y será la primera en ser deshecha si se llama a pop_action().
+        Registra una nueva acción en el historial. La acción queda como
+        la más reciente y será la primera en deshacerse si se llama a
+        undo_last_action().
 
         Parámetros:
             action: Instancia de InvestigatorAction que representa la acción a registrar.
@@ -66,61 +66,60 @@ class ActionStack:
             raise TypeError(
                 f"El parámetro debe ser una instancia de InvestigatorAction, se recibió: {type(action).__name__}."
             )
-        self.__action_storage.append(action)
+        self.__logged_actions.append(action)
 
-    def pop_action(self) -> InvestigatorAction:
+    def undo_last_action(self) -> InvestigatorAction:
         """
-        Elimina y retorna la acción en la cima de la pila (la más reciente).
-        Esta operación simula el "deshacer" de la última acción realizada
-        por el investigador.
+        Revierte la acción más reciente del historial, eliminándola del registro.
+        Simula el "deshacer" de la última operación realizada por el investigador.
 
         Retorna:
-            La instancia de InvestigatorAction que se encontraba en la cima.
+            La instancia de InvestigatorAction que fue revertida.
 
         Lanza:
-            EmptyStackError: Si la pila está vacía y no hay acciones para deshacer.
+            NoActionsToUndoError: Si el historial está vacío y no hay acciones para deshacer.
         """
-        if self.is_empty():
-            raise EmptyStackError()
-        return self.__action_storage.pop()
+        if self.has_no_recorded_actions():
+            raise NoActionsToUndoError()
+        return self.__logged_actions.pop()
 
-    def peek_action(self) -> InvestigatorAction:
+    def review_latest_action(self) -> InvestigatorAction:
         """
-        Retorna la acción en la cima de la pila sin eliminarla. Permite consultar
-        cuál fue la última acción registrada sin modificar el estado de la pila.
+        Retorna la acción más reciente del historial sin eliminarla. Permite
+        consultar cuál fue la última operación registrada sin modificar el estado.
 
         Retorna:
-            La instancia de InvestigatorAction que se encuentra en la cima.
+            La instancia de InvestigatorAction más reciente en el historial.
 
         Lanza:
-            EmptyStackError: Si la pila está vacía y no hay acciones para consultar.
+            NoActionsToUndoError: Si el historial está vacío y no hay acciones para consultar.
         """
-        if self.is_empty():
-            raise EmptyStackError()
-        return self.__action_storage[-1]
+        if self.has_no_recorded_actions():
+            raise NoActionsToUndoError()
+        return self.__logged_actions[-1]
 
-    def is_empty(self) -> bool:
+    def has_no_recorded_actions(self) -> bool:
         """
-        Verifica si la pila de acciones está vacía. Este método se usa internamente
+        Verifica si el historial de acciones está vacío. Se usa internamente
         antes de operaciones de extracción y también puede usarse externamente
         para verificar el estado antes de operar.
 
         Retorna:
-            True si la pila no contiene acciones, False en caso contrario.
+            True si no hay acciones registradas, False en caso contrario.
         """
-        return len(self.__action_storage) == 0
+        return len(self.__logged_actions) == 0
 
     def get_full_history(self) -> List[InvestigatorAction]:
         """
-        Retorna una copia de todas las acciones almacenadas, ordenadas de la
+        Retorna una copia de todas las acciones registradas, ordenadas de la
         más reciente a la más antigua. Se retorna una copia para proteger
-        la integridad de la estructura interna.
+        la integridad del registro interno.
 
         Retorna:
             Lista de InvestigatorAction ordenada de más reciente a más antigua.
-            Lista vacía si la pila no tiene acciones.
+            Lista vacía si no hay acciones registradas.
         """
-        return list(reversed(self.__action_storage))
+        return list(reversed(self.__logged_actions))
 
     def search_by_investigator(self, investigator_name: str) -> List[InvestigatorAction]:
         """
@@ -139,15 +138,15 @@ class ActionStack:
         """
         if not investigator_name or not investigator_name.strip():
             raise ValueError("El nombre del investigador no puede estar vacío para realizar la búsqueda.")
-        matching_actions = [
-            action for action in self.__action_storage
+        actions_by_investigator = [
+            action for action in self.__logged_actions
             if action.investigator_name == investigator_name
         ]
-        return list(reversed(matching_actions))
+        return list(reversed(actions_by_investigator))
 
-    def count_by_action_type(self, action_type: "ActionType") -> int:
+    def count_by_action_type(self, action_type: ActionType) -> int:
         """
-        Cuenta cuántas acciones de un tipo específico existen en la pila.
+        Cuenta cuántas acciones de un tipo específico existen en el historial.
 
         Parámetros:
             action_type: Tipo de acción a contar, debe ser una instancia de ActionType.
@@ -158,43 +157,42 @@ class ActionStack:
         Lanza:
             TypeError: Si action_type no es una instancia válida de ActionType.
         """
-        from enumerations import ActionType as ActionTypeEnum
-        if not isinstance(action_type, ActionTypeEnum):
+        if not isinstance(action_type, ActionType):
             raise TypeError(
                 f"El parámetro debe ser una instancia de ActionType, se recibió: {type(action_type).__name__}."
             )
-        return sum(1 for action in self.__action_storage if action.action_type == action_type)
+        return sum(1 for action in self.__logged_actions if action.action_type == action_type)
 
     def clear_history(self) -> None:
         """
-        Elimina todas las acciones almacenadas en la pila, dejándola vacía.
+        Elimina todas las acciones del historial, dejándolo vacío.
         Esta operación es irreversible: una vez limpiado el historial,
         no se pueden recuperar las acciones eliminadas.
         """
-        self.__action_storage.clear()
+        self.__logged_actions.clear()
 
     def __len__(self) -> int:
         """
-        Retorna el número de acciones almacenadas en la pila.
-        Permite usar len(action_stack) de forma natural.
+        Retorna el número de acciones registradas en el historial.
+        Permite usar len(action_log) de forma natural.
 
         Retorna:
             Número entero con la cantidad de acciones.
         """
-        return len(self.__action_storage)
+        return len(self.__logged_actions)
 
     def __str__(self) -> str:
         """
-        Retorna un resumen legible del estado actual de la pila, indicando
+        Retorna un resumen legible del estado actual del historial, indicando
         cuántas acciones contiene y cuál es la más reciente.
 
         Retorna:
             Cadena con el número de acciones y la acción más reciente si existe.
         """
-        if self.is_empty():
-            return "Pila de acciones vacía. No hay acciones registradas."
-        top_action = self.__action_storage[-1]
+        if self.has_no_recorded_actions():
+            return "Historial de acciones vacío. No hay acciones registradas."
+        latest = self.__logged_actions[-1]
         return (
-            f"Pila de acciones: {len(self.__action_storage)} acción(es) registrada(s). "
-            f"Acción más reciente: [{top_action.action_type.value}] por {top_action.investigator_name}."
+            f"Historial de acciones: {len(self.__logged_actions)} acción(es) registrada(s). "
+            f"Acción más reciente: [{latest.action_type.value}] por {latest.investigator_name}."
         )
