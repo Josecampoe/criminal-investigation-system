@@ -139,16 +139,6 @@ python main.py
 
 ---
 
-## 👥 Team
-
-| Author | Email | Role |
-|:---|:---|:---|
-| StehvenObandoUcc | stehven.obando@campusucc.edu.co | Domain Layer & Ports |
-| F3L1P3GoD | felipe.gamboa0102@gmail.com | Infrastructure & Data Structures |
-| maajjjoo | majose2006@gmail.com | Application Layer & Presentation UI |
-
----
-
 ## 📅 Delivery
 
 **Due date:** May 15, 2025
